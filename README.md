@@ -1,2 +1,2 @@
 # DynamicAudioButton
-Example for realtime Compose audio animation for record button
+Example of realtime Compose audio animation for record button
