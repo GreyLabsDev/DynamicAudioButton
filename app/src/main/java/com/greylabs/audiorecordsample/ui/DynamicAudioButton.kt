@@ -2,6 +2,7 @@ package com.greylabs.audiorecordsample.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animate
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,12 +37,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import com.greylabs.audiorecordsample.R
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.DURATION_DEFAULT
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.DURATION_SCALE
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.INITIAL_VAL
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.LABEL_ROTATION
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.SCALE_IN
-import com.greylabs.audiorecordsample.ui.DynamicAudioButtonConsts.SCALE_OUT
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.DEFAULT_BTN_BG
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.DURATION_DEFAULT
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.DURATION_SCALE
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.INITIAL_VAL
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.LABEL_ROTATION
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.SCALE_IN
+import com.greylabs.audiorecordsample.ui.DynamicAudioButtonDefaults.SCALE_OUT
 
 @Composable
 fun DynamicAudioButton(
@@ -61,16 +64,16 @@ fun DynamicAudioButton(
         }
     }
 
-    var testScale by remember {
+    var inAndOutScale by remember {
         mutableFloatStateOf(SCALE_IN)
     }
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(DynamicAudioButtonConsts.defaultButtonSize)
+            .size(DynamicAudioButtonDefaults.defaultButtonSize)
             .background(
-                color = Color(0xffDD9200),
+                color = Color(DEFAULT_BTN_BG),
                 shape = CircleShape
             )
             .clickable(
@@ -81,36 +84,10 @@ fun DynamicAudioButton(
                 onClickAction.invoke()
             }
     ) {
-        val rotationTransitions = List(dynamicWavesResList.size) { index ->
-            rememberInfiniteTransition(String.format(LABEL_ROTATION, index))
-        }
+        val dynamicWavesListSize = dynamicWavesResList.size
 
-        val rotationDurations = List(rotationTransitions.size) {
-            remember {
-                DynamicAudioButtonConsts.rotationDurationList.random()
-            }
-        }
-
-        val rotations = List(rotationTransitions.size) {
-            remember {
-                DynamicAudioButtonConsts.targetRotationList.random()
-            }
-        }
-
-        val rotationStateList = List(rotationTransitions.size) { index ->
-            rotationTransitions[index].animateFloat(
-                initialValue = INITIAL_VAL,
-                targetValue = rotations[index],
-                animationSpec = infiniteRepeatable(
-                    animation = tween(
-                        rotationDurations[index],
-                        easing = LinearEasing
-                    ),
-                    repeatMode = RepeatMode.Restart
-                ),
-                label = String.format(LABEL_ROTATION, index)
-            )
-        }
+        val rotationStateList =
+            initRotationStates(count = dynamicWavesListSize, label = LABEL_ROTATION)
 
         var animIndex = 0
         dynamicWavesResList.forEachIndexed { index, resId ->
@@ -119,8 +96,10 @@ fun DynamicAudioButton(
                 contentDescription = "",
                 modifier = Modifier.graphicsLayer {
                     this.rotationZ = rotationStateList[animIndex].value
-                    scaleX = if (dynamicScaleLock) testScale else animatedScales[animIndex].value
-                    scaleY = if (dynamicScaleLock) testScale else animatedScales[animIndex].value
+                    scaleX =
+                        if (dynamicScaleLock) inAndOutScale else animatedScales[animIndex].value
+                    scaleY =
+                        if (dynamicScaleLock) inAndOutScale else animatedScales[animIndex].value
                     transformOrigin = TransformOrigin.Center
                 }
             )
@@ -162,7 +141,7 @@ fun DynamicAudioButton(
                 targetValue = SCALE_OUT,
                 animationSpec = tween(DURATION_SCALE)
             ) { value: Float, _: Float ->
-                testScale = value
+                inAndOutScale = value
             }
             dynamicScaleLock = false
         } else {
@@ -172,7 +151,7 @@ fun DynamicAudioButton(
                 targetValue = SCALE_IN,
                 animationSpec = tween(DURATION_SCALE)
             ) { value: Float, _: Float ->
-                testScale = value
+                inAndOutScale = value
             }
             animatedScales.forEach { it.snapTo(SCALE_OUT) }
         }
@@ -190,13 +169,87 @@ fun DynamicAudioButton(
     }
 }
 
-internal object DynamicAudioButtonConsts {
+@Composable
+internal fun initTransitions(count: Int, label: String): List<InfiniteTransition> {
+    return List(count) { index ->
+        rememberInfiniteTransition(String.format(label, index))
+    }
+}
+
+@Composable
+internal fun initRotationDurations(count: Int): List<Int> {
+    return List(count) {
+        remember {
+            DynamicAudioButtonDefaults.rotationDurationList.random()
+        }
+    }
+}
+
+@Composable
+internal fun initRotationDirections(count: Int): List<Float> {
+    return List(count) {
+        remember {
+            DynamicAudioButtonDefaults.targetRotationList.random()
+        }
+    }
+}
+
+@Composable
+internal fun initRotationStates(
+    count: Int,
+    transitions: List<InfiniteTransition>,
+    rotations: List<Float>,
+    durations: List<Int>
+): List<State<Float>> {
+    return List(count) { index ->
+        transitions[index].animateFloat(
+            initialValue = INITIAL_VAL,
+            targetValue = rotations[index],
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durations[index],
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = String.format(LABEL_ROTATION, index)
+        )
+    }
+}
+
+@Composable
+internal fun initRotationStates(
+    count: Int,
+    label: String
+): List<State<Float>> {
+    val transitions = initTransitions(count = count, label = label)
+    val rotationDirections = initRotationDirections(count = count)
+    val rotationDurations = initRotationDurations(count = count)
+    return List(count) { index ->
+        transitions[index].animateFloat(
+            initialValue = INITIAL_VAL,
+            targetValue = rotationDirections[index],
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    rotationDurations[index],
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = String.format(LABEL_ROTATION, index)
+        )
+    }
+}
+
+
+internal object DynamicAudioButtonDefaults {
     const val DURATION_DEFAULT = 200
     const val DURATION_SCALE = 400
     const val SCALE_OUT = 1.1f
     const val SCALE_IN = 0.1f
     const val INITIAL_VAL = 0f
     const val LABEL_ROTATION = "rotation%s"
+    const val DEFAULT_BTN_BG = 0xffDD9200
 
     val defaultButtonSize = 100.dp
     val targetRotationList = listOf(360f, -360f)
